@@ -1,0 +1,179 @@
+// OpenIndy — Prisma schema
+// SQLite for v1 (zero-config local). Switch to postgresql for production.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============= IDENTITY =============
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  name          String?
+  createdAt     DateTime       @default(now())
+  memberships   Membership[]
+}
+
+model Organization {
+  id                 String           @id @default(cuid())
+  name               String
+  legalForm          String           @default("AE") // AE, EI, SASU, SAS, SARL, EURL
+  taxRegime          String           @default("MICRO_BNC") // MICRO_BNC, MICRO_BIC, REEL_SIMPLIFIE_BIC, REEL_NORMAL_BIC, BNC_DC, IS_SOCIETE
+  vatRegime          String           @default("FRANCHISE") // FRANCHISE, REEL_SIMPLIFIE, REEL_NORMAL
+  siret              String?
+  apeCode            String?
+  fiscalYearStart    Int              @default(1) // month
+  createdAt          DateTime         @default(now())
+  memberships        Membership[]
+  bankAccounts       BankAccount[]
+  fiscalYears        FiscalYear[]
+  journals           Journal[]
+  accounts           Account[]
+  categories         Category[]
+  transactions       BankTransaction[]
+}
+
+model Membership {
+  id              String       @id @default(cuid())
+  userId          String
+  organizationId  String
+  role            String       @default("OWNER") // OWNER, ACCOUNTANT, VIEWER
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+// ============= CHART OF ACCOUNTS (PCG) =============
+model Account {
+  id              String        @id @default(cuid())
+  organizationId  String
+  code            String        // e.g. "411000", "606400"
+  label           String
+  classNum        Int           // 1..8
+  parentCode      String?
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lines           JournalLine[]
+
+  @@unique([organizationId, code])
+}
+
+// ============= USER-FACING CATEGORIES =============
+model Category {
+  id              String            @id @default(cuid())
+  organizationId  String?           // null = global system category
+  key             String            // slug
+  label           String
+  family          String            // REVENUS, REMUNERATIONS, FONCTIONNEMENT, DEPLACEMENTS, FRAIS_FIXES, TAXES
+  defaultPcgCode  String
+  defaultVatRate  Float?
+  direction       String            @default("BOTH") // IN, OUT, BOTH
+  organization    Organization?     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions    BankTransaction[]
+
+  @@unique([organizationId, key])
+}
+
+// ============= BANK =============
+model BankAccount {
+  id                 String            @id @default(cuid())
+  organizationId     String
+  provider           String            @default("MANUAL") // QONTO, BRIDGE, POWENS, GOCARDLESS, MANUAL
+  providerAccountId  String?
+  iban               String?
+  name               String
+  currency           String            @default("EUR")
+  balance            Float             @default(0)
+  linkedPcgCode      String            @default("512000")
+  lastSyncAt         DateTime?
+  isActive           Boolean           @default(true)
+  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions       BankTransaction[]
+}
+
+model BankTransaction {
+  id              String         @id @default(cuid())
+  organizationId  String
+  bankAccountId   String
+  providerTxId    String?        // optional for manual
+  bookedAt        DateTime
+  valueDate       DateTime?
+  amount          Float          // signed, negative = outflow
+  currency        String         @default("EUR")
+  counterparty    String
+  rawLabel        String
+  txType          String         @default("OTHER") // CARD, TRANSFER, DIRECT_DEBIT, FEE, CHECK, CASH, OTHER
+  status          String         @default("CLEARED")
+  categoryId      String?
+  vatRate         Float?
+  vatAmount       Float?
+  notes           String?
+  isReviewed      Boolean        @default(false)
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankAccount     BankAccount    @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  category        Category?      @relation(fields: [categoryId], references: [id])
+  journalEntry    JournalEntry?
+
+  @@index([bookedAt])
+  @@index([organizationId])
+}
+
+// ============= LEDGER =============
+model FiscalYear {
+  id              String         @id @default(cuid())
+  organizationId  String
+  startDate       DateTime
+  endDate         DateTime
+  status          String         @default("OPEN") // OPEN, CLOSING, CLOSED
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entries         JournalEntry[]
+
+  @@unique([organizationId, startDate])
+}
+
+model Journal {
+  id              String         @id @default(cuid())
+  organizationId  String
+  code            String         // BQ, VE, AC, OD
+  label           String
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entries         JournalEntry[]
+
+  @@unique([organizationId, code])
+}
+
+model JournalEntry {
+  id            String           @id @default(cuid())
+  fiscalYearId  String
+  journalId     String
+  entryDate     DateTime
+  entryNumber   Int
+  label         String
+  sourceTxId    String?          @unique
+  isLocked      Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  fiscalYear    FiscalYear       @relation(fields: [fiscalYearId], references: [id], onDelete: Cascade)
+  journal       Journal          @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  sourceTx      BankTransaction? @relation(fields: [sourceTxId], references: [id])
+  lines         JournalLine[]
+
+  @@index([entryDate])
+}
+
+model JournalLine {
+  id          String       @id @default(cuid())
+  entryId     String
+  accountId   String
+  debit       Float        @default(0)
+  credit      Float        @default(0)
+  label       String
+  vatCode     String?
+  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account     Account      @relation(fields: [accountId], references: [id])
+}

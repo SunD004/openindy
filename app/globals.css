@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* OpenIndy primary — deep indigo (OKLCH ~ oklch(0.42 0.18 270)) translated to HSL */
+    --primary: 243 75% 45%;
+    --primary-foreground: 210 40% 98%;
+
+    /* Accent — mint */
+    --accent: 160 60% 92%;
+    --accent-foreground: 160 80% 20%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 243 75% 45%;
+    --radius: 0.65rem;
+
+    /* Category family colors */
+    --family-revenus: 160 65% 45%;
+    --family-remunerations: 262 62% 55%;
+    --family-fonctionnement: 217 75% 55%;
+    --family-deplacements: 28 85% 55%;
+    --family-frais-fixes: 215 16% 47%;
+    --family-taxes: 0 65% 52%;
+  }
+
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 243 75% 65%;
+    --primary-foreground: 222 47% 11%;
+    --accent: 160 60% 18%;
+    --accent-foreground: 160 80% 85%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 243 75% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
